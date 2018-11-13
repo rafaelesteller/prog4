@@ -544,9 +544,9 @@ function setupShaders() {
             
             
             if(uTexBlend) {
-    			texColA= texColA * vec4(colorOut, 1.0);
+    			texColA= texColA * vec4(colorOut, uAlphaFrag);
             } else {
-    			texColA = vec4(texCol*texA + colorOut * ( 1.0 - texA), 1.0); 
+    			texColA = vec4(texCol*texA + colorOut * ( 1.0 - texA), uAlphaFrag); 
             }
             gl_FragColor = texColA;//, vec4(1.0, 1.0, 1.0, 1.0));
         }
@@ -674,44 +674,64 @@ function renderModels() {
 
     // render each triangle set
     var currSet; // the tri set and its material properties
-    for (var whichTriSet=0; whichTriSet<numTriangleSets; whichTriSet++) {
-        currSet = inputTriangles[whichTriSet];
-        
-        // make model transform, add to view project
-        makeModelTransform(currSet);
-        mat4.multiply(pvmMatrix,pvMatrix,mMatrix); // project * view * model
-        gl.uniformMatrix4fv(mMatrixULoc, false, mMatrix); // pass in the m matrix
-        gl.uniformMatrix4fv(pvmMatrixULoc, false, pvmMatrix); // pass in the hpvm matrix
-        
-        // reflectivity: feed to the fragment shader
-        gl.uniform3fv(ambientULoc,currSet.material.ambient); // pass in the ambient reflectivity
-        gl.uniform3fv(diffuseULoc,currSet.material.diffuse); // pass in the diffuse reflectivity
-        gl.uniform3fv(specularULoc,currSet.material.specular); // pass in the specular reflectivity
-        gl.uniform1f(shininessULoc,currSet.material.n); // pass in the specular exponent
-        gl.uniform1i(Blinn_PhongULoc, Blinn_Phong);
-        // vertex buffer: activate and feed into vertex shader
-        gl.bindBuffer(gl.ARRAY_BUFFER,vertexBuffers[whichTriSet]); // activate
-        gl.vertexAttribPointer(vPosAttribLoc,3,gl.FLOAT,false,0,0); // feed
-        gl.bindBuffer(gl.ARRAY_BUFFER,normalBuffers[whichTriSet]); // activate
-        gl.vertexAttribPointer(vNormAttribLoc,3,gl.FLOAT,false,0,0); // feed
-        
-        
-        //code for texture
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, textures[whichTriSet]);
-        gl.uniform1i(textureULoc, 0);
-        
-        gl.bindBuffer(gl.ARRAY_BUFFER,textCoordBuffers[1]); // activate
-        gl.vertexAttribPointer(vTextCoordAttribLoc,2,gl.FLOAT,false,0,0); // feed
-        
-        gl.uniform1i(texTypeUloc, blendType);
-
-
-        // triangle buffer: activate and render
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,triangleBuffers[whichTriSet]); // activate
-        gl.drawElements(gl.TRIANGLES,3*triSetSizes[whichTriSet],gl.UNSIGNED_SHORT,0); // render
-        
-    } // end for each triangle set
+    for (var transparency = 1; transparency >= 0; transparency--) {
+    	if (transparency == 1) {
+    		gl.depthMask(true);
+    		console.log("mask on")
+    	} else {
+    		gl.depthMask(false);
+    		console.log("mask off")
+    	}
+	    for (var whichTriSet=0; whichTriSet<numTriangleSets; whichTriSet++) {
+	        
+	    	currSet = inputTriangles[whichTriSet];
+	    	
+	    	//checking if transparent or not, if transparent draw on seccond iteration
+	    	if (currSet.material.alpha < transparency) {
+	    		//if item is transparent skip it. 
+	    		console.log("skipping")
+	    		console.log(currSet.material.alpha )
+	    		console.log(transparency)
+	    		continue;
+	    	}
+	        
+	        // make model transform, add to view project
+	        makeModelTransform(currSet);
+	        mat4.multiply(pvmMatrix,pvMatrix,mMatrix); // project * view * model
+	        gl.uniformMatrix4fv(mMatrixULoc, false, mMatrix); // pass in the m matrix
+	        gl.uniformMatrix4fv(pvmMatrixULoc, false, pvmMatrix); // pass in the hpvm matrix
+	        
+	        // reflectivity: feed to the fragment shader
+	        gl.uniform3fv(ambientULoc,currSet.material.ambient); // pass in the ambient reflectivity
+	        gl.uniform3fv(diffuseULoc,currSet.material.diffuse); // pass in the diffuse reflectivity
+	        gl.uniform3fv(specularULoc,currSet.material.specular); // pass in the specular reflectivity
+	        gl.uniform1f(shininessULoc,currSet.material.n); // pass in the specular exponent
+	        gl.uniform1i(Blinn_PhongULoc, Blinn_Phong);
+	        // vertex buffer: activate and feed into vertex shader
+	        gl.bindBuffer(gl.ARRAY_BUFFER,vertexBuffers[whichTriSet]); // activate
+	        gl.vertexAttribPointer(vPosAttribLoc,3,gl.FLOAT,false,0,0); // feed
+	        gl.bindBuffer(gl.ARRAY_BUFFER,normalBuffers[whichTriSet]); // activate
+	        gl.vertexAttribPointer(vNormAttribLoc,3,gl.FLOAT,false,0,0); // feed
+	        
+	        
+	        //code for texture
+	        gl.activeTexture(gl.TEXTURE0);
+	        gl.bindTexture(gl.TEXTURE_2D, textures[whichTriSet]);
+	        gl.uniform1i(textureULoc, 0);
+	        gl.uniform1f(fragAlphaUloc, currSet.material.alpha);
+	        
+	        gl.bindBuffer(gl.ARRAY_BUFFER,textCoordBuffers[1]); // activate
+	        gl.vertexAttribPointer(vTextCoordAttribLoc,2,gl.FLOAT,false,0,0); // feed
+	        
+	        gl.uniform1i(texTypeUloc, blendType);
+	
+	
+	        // triangle buffer: activate and render
+	        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,triangleBuffers[whichTriSet]); // activate
+	        gl.drawElements(gl.TRIANGLES,3*triSetSizes[whichTriSet],gl.UNSIGNED_SHORT,0); // render
+	        
+	    } // end for each triangle set
+    }
 } // end render model
 
 
